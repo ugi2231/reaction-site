@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>반응속도 테스트</title>
+  <style>
+    body {
+      display: flex;
+      margin: 0;
+      font-family: sans-serif;
+    }
+    .ad {
+      width: 160px;
+      background: #f4f4f4;
+      text-align: center;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #222;
+      color: white;
+      flex-direction: column;
+    }
+    #start {
+      padding: 10px 20px;
+      font-size: 24px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #message {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+    #result {
+      font-size: 24px;
+      color: #0f0;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="ad">
+    <!-- 여기에 광고 코드 붙일 예정 -->
+    <p>광고 영역 (왼쪽)</p>
+  </div>
+  <div class="container">
+    <div id="message">시작하려면 버튼을 누르세요</div>
+    <button id="start">시작</button>
+    <div id="result"></div>
+  </div>
+  <div class="ad">
+    <!-- 여기에 광고 코드 붙일 예정 -->
+    <p>광고 영역 (오른쪽)</p>
+  </div>
+
+  <script>
+    let startTime, timeout;
+    const startBtn = document.getElementById("start");
+    const message = document.getElementById("message");
+    const result = document.getElementById("result");
+
+    startBtn.addEventListener("click", () => {
+      startBtn.disabled = true;
+      result.textContent = "";
+      message.textContent = "초록색으로 바뀌면 클릭하세요...";
+      document.body.style.backgroundColor = "#222";
+
+      timeout = setTimeout(() => {
+        startTime = new Date().getTime();
+        message.textContent = "지금 클릭!";
+        document.body.style.backgroundColor = "#2ecc71"; // 초록
+        startBtn.disabled = false;
+      }, Math.random() * 3000 + 2000); // 2~5초 랜덤 대기
+    });
+
+    startBtn.addEventListener("mouseup", () => {
+      if (message.textContent === "지금 클릭!") {
+        const reactionTime = new Date().getTime() - startTime;
+        result.textContent = `당신의 반응속도: ${reactionTime}ms`;
+        message.textContent = "다시 하시려면 버튼을 누르세요";
+      } else {
+        clearTimeout(timeout);
+        message.textContent = "너무 빨랐어요! 다시 시도해보세요.";
+        document.body.style.backgroundColor = "#e74c3c"; // 빨강
+        startBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
