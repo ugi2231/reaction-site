@@ -48,7 +48,6 @@
 </head>
 <body>
   <div class="ad">
-    <!-- 왼쪽 광고 자리 -->
     <p>광고 (왼쪽)</p>
   </div>
   <div class="container" id="gameArea">
@@ -57,19 +56,22 @@
     <div id="result"></div>
   </div>
   <div class="ad">
-    <!-- 오른쪽 광고 자리 -->
     <p>광고 (오른쪽)</p>
   </div>
 
   <script>
     let startTime, timeout;
     let readyToClick = false;
+    let gameStarted = false;
+
     const startBtn = document.getElementById("start");
     const message = document.getElementById("message");
     const result = document.getElementById("result");
-    const gameArea = document.getElementById("gameArea");
 
     startBtn.addEventListener("click", () => {
+      if (gameStarted) return;
+
+      gameStarted = true;
       startBtn.style.display = "none";
       message.textContent = "초록색이 나오면 화면을 클릭하세요...";
       result.textContent = "";
@@ -84,26 +86,30 @@
     });
 
     document.body.addEventListener("click", () => {
-      if (!startTime) return;
+      if (!gameStarted) return;
 
       if (readyToClick) {
         const reactionTime = new Date().getTime() - startTime;
         result.textContent = `당신의 반응속도: ${reactionTime}ms`;
         message.textContent = "다시 하시려면 버튼을 누르세요";
         startBtn.style.display = "inline-block";
-        readyToClick = false;
-        startTime = null;
-        document.body.style.backgroundColor = "#222";
+        resetGame();
       } else {
         clearTimeout(timeout);
+        document.body.style.backgroundColor = "#e74c3c"; // 빨강
         message.textContent = "너무 빨랐어요! 다시 시도해보세요.";
         result.textContent = "";
         startBtn.style.display = "inline-block";
-        readyToClick = false;
-        startTime = null;
-        document.body.style.backgroundColor = "#e74c3c"; // 빨강
+        resetGame();
       }
     });
+
+    function resetGame() {
+      startTime = null;
+      readyToClick = false;
+      gameStarted = false;
+    }
   </script>
 </body>
 </html>
+
