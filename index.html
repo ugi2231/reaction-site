@@ -24,14 +24,20 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
       text-align: center;
       padding: 20px;
     }
+    #nickname {
+      font-size: 20px;
+      padding: 8px;
+      margin-bottom: 10px;
+      width: 200px;
+    }
     #message {
-      font-size: 32px;
-      margin-bottom: 20px;
+      font-size: 28px;
+      margin: 20px 0;
     }
     #result {
       font-size: 24px;
@@ -42,16 +48,34 @@
       padding: 10px 20px;
       font-size: 24px;
       cursor: pointer;
-      margin-top: 20px;
+    }
+    #ranking {
+      margin-top: 40px;
+      width: 100%;
+      max-width: 400px;
+      background: #333;
+      padding: 10px;
+      border-radius: 10px;
+    }
+    #ranking h3 {
+      margin-bottom: 10px;
+      font-size: 20px;
+      border-bottom: 1px solid #777;
+    }
+    #ranking ul {
+      list-style: none;
+      padding: 0;
+    }
+    #ranking li {
+      font-size: 16px;
+      padding: 4px 0;
     }
   </style>
-  <!-- 구글 애드센스 스크립트 (한 번만 포함) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3922135705918865"
           crossorigin="anonymous"></script>
 </head>
 <body>
   <div class="ad">
-    <!-- 왼쪽 광고 영역 -->
     <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-3922135705918865"
@@ -64,13 +88,17 @@
   </div>
 
   <div class="container" id="gameArea">
+    <input type="text" id="nickname" placeholder="닉네임 입력 (필수)" />
     <div id="message">시작하려면 버튼을 누르세요</div>
     <button id="start">시작</button>
     <div id="result"></div>
+    <div id="ranking">
+      <h3>📋 최근 랭킹</h3>
+      <ul id="rankingList"></ul>
+    </div>
   </div>
 
   <div class="ad">
-    <!-- 오른쪽 광고 영역 -->
     <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-3922135705918865"
@@ -90,36 +118,51 @@
     const startBtn = document.getElementById("start");
     const message = document.getElementById("message");
     const result = document.getElementById("result");
+    const gameArea = document.getElementById("gameArea");
+    const nicknameInput = document.getElementById("nickname");
+    const rankingList = document.getElementById("rankingList");
 
-    startBtn.addEventListener("click", () => {
+    // 시작 버튼 클릭
+    startBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const nickname = nicknameInput.value.trim();
+      if (!nickname) {
+        alert("닉네임을 입력해주세요!");
+        return;
+      }
+
       if (gameStarted) return;
 
       gameStarted = true;
       startBtn.style.display = "none";
-      message.textContent = "초록색이 나오면 화면을 클릭하세요...";
+      message.textContent = "초록색이 나오면 클릭하세요...";
       result.textContent = "";
       document.body.style.backgroundColor = "#222";
 
       timeout = setTimeout(() => {
-        document.body.style.backgroundColor = "#2ecc71"; // 초록색
+        document.body.style.backgroundColor = "#2ecc71";
         message.textContent = "지금 클릭하세요!";
         startTime = new Date().getTime();
         readyToClick = true;
-      }, Math.random() * 3000 + 2000); // 2~5초 랜덤 대기
+      }, Math.random() * 3000 + 2000);
     });
 
-    document.body.addEventListener("click", () => {
+    // 게임 화면 클릭
+    gameArea.addEventListener("click", () => {
       if (!gameStarted) return;
 
       if (readyToClick) {
         const reactionTime = new Date().getTime() - startTime;
+        const nickname = nicknameInput.value.trim();
         result.textContent = `당신의 반응속도: ${reactionTime}ms`;
         message.textContent = "다시 하시려면 버튼을 누르세요";
         startBtn.style.display = "inline-block";
+        saveToRanking(nickname, reactionTime);
+        showRanking();
         resetGame();
       } else {
         clearTimeout(timeout);
-        document.body.style.backgroundColor = "#e74c3c"; // 빨강
+        document.body.style.backgroundColor = "#e74c3c";
         message.textContent = "너무 빨랐어요! 다시 시도해보세요.";
         result.textContent = "";
         startBtn.style.display = "inline-block";
@@ -132,8 +175,29 @@
       readyToClick = false;
       gameStarted = false;
     }
+
+    function saveToRanking(nick, time) {
+      let records = JSON.parse(localStorage.getItem("reactionRanking")) || [];
+      records.unshift({ nick, time });
+      if (records.length > 10) records = records.slice(0, 10);
+      localStorage.setItem("reactionRanking", JSON.stringify(records));
+    }
+
+    function showRanking() {
+      const records = JSON.parse(localStorage.getItem("reactionRanking")) || [];
+      rankingList.innerHTML = "";
+      records.forEach((r, i) => {
+        const li = document.createElement("li");
+        li.textContent = `${i + 1}위: ${r.nick} - ${r.time}ms`;
+        rankingList.appendChild(li);
+      });
+    }
+
+    // 처음 로딩 시 랭킹 표시
+    showRanking();
   </script>
 </body>
 </html>
+
 
 
