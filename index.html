@@ -28,8 +28,6 @@
       align-items: center;
       text-align: center;
       padding: 20px;
-      user-select: none;
-      cursor: default;
     }
     #nickname {
       font-size: 20px;
@@ -40,7 +38,6 @@
     #message {
       font-size: 28px;
       margin: 20px 0;
-      min-height: 40px;
     }
     #result {
       font-size: 24px;
@@ -51,7 +48,6 @@
       padding: 10px 20px;
       font-size: 24px;
       cursor: pointer;
-      user-select: none;
     }
     #ranking {
       margin-top: 40px;
@@ -60,7 +56,8 @@
       background: #333;
       padding: 10px;
       border-radius: 10px;
-      user-select: none;
+      overflow-y: auto;
+      max-height: 300px;
     }
     #ranking h3 {
       margin-bottom: 10px;
@@ -70,27 +67,26 @@
     #ranking ul {
       list-style: none;
       padding: 0;
-      max-height: 250px;
-      overflow-y: auto;
+      margin: 0;
     }
     #ranking li {
       font-size: 16px;
       padding: 4px 0;
-      border-bottom: 1px solid #444;
+      border-bottom: 1px solid #555;
     }
   </style>
-
-  <!-- Firebase JS SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js"></script>
 
   <!-- Google AdSense -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3922135705918865"
           crossorigin="anonymous"></script>
 
+  <!-- Firebase SDK v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-analytics.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
   <script>
-    // Firebase 설정
+    // Firebase 설정 (프로젝트에 맞게 수정)
     const firebaseConfig = {
       apiKey: "AIzaSyA9AwuTKyrISlvnltgpqsA3h1vklsHmgNE",
       authDomain: "reaction-test-ce722.firebaseapp.com",
@@ -102,11 +98,10 @@
     };
 
     // Firebase 초기화
-    const app = firebase.initializeApp(firebaseConfig);
-    const analytics = firebase.analytics();
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
     const db = firebase.firestore();
   </script>
-
 </head>
 <body>
   <div class="ad">
@@ -122,12 +117,12 @@
   </div>
 
   <div class="container" id="gameArea">
-    <input type="text" id="nickname" placeholder="닉네임 입력 (필수)" autocomplete="off" />
+    <input type="text" id="nickname" placeholder="닉네임 입력 (필수)" />
     <div id="message">시작하려면 버튼을 누르세요</div>
     <button id="start">시작</button>
     <div id="result"></div>
     <div id="ranking">
-      <h3>📋 실시간 랭킹 (전세계 공유)</h3>
+      <h3>📋 최근 랭킹 (모두와 공유)</h3>
       <ul id="rankingList"></ul>
     </div>
   </div>
@@ -156,7 +151,6 @@
     const nicknameInput = document.getElementById("nickname");
     const rankingList = document.getElementById("rankingList");
 
-    // 시작 버튼 클릭
     startBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       const nickname = nicknameInput.value.trim();
@@ -181,7 +175,6 @@
       }, Math.random() * 3000 + 2000);
     });
 
-    // 게임 화면 클릭 (게임 영역 클릭 감지)
     gameArea.addEventListener("click", () => {
       if (!gameStarted) return;
 
@@ -191,64 +184,54 @@
         result.textContent = `당신의 반응속도: ${reactionTime}ms`;
         message.textContent = "다시 하시려면 버튼을 누르세요";
         startBtn.style.display = "inline-block";
+
         saveToRanking(nickname, reactionTime);
-        resetGame();
+
+        readyToClick = false;
+        gameStarted = false;
+        showRanking();
       } else {
         clearTimeout(timeout);
         document.body.style.backgroundColor = "#e74c3c";
         message.textContent = "너무 빨랐어요! 다시 시도해보세요.";
         result.textContent = "";
         startBtn.style.display = "inline-block";
-        resetGame();
+        readyToClick = false;
+        gameStarted = false;
       }
     });
 
-    function resetGame() {
-      startTime = null;
-      readyToClick = false;
-      gameStarted = false;
+    function saveToRanking(nick, time) {
+      db.collection("reactionRanking").add({
+        nick: nick,
+        time: time,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch((error) => {
+        console.error("Firestore 저장 에러:", error);
+      });
     }
 
-    // Firestore에 랭킹 저장
-    async function saveToRanking(nick, time) {
-      try {
-        // 랭킹 컬렉션에 새 기록 추가
-        await db.collection("reactionRanking").add({
-          nickname: nick,
-          time: time,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    function showRanking() {
+      db.collection("reactionRanking")
+        .orderBy("time")
+        .limit(10)
+        .get()
+        .then((querySnapshot) => {
+          rankingList.innerHTML = "";
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            const li = document.createElement("li");
+            li.textContent = `${data.nick} - ${data.time}ms`;
+            rankingList.appendChild(li);
+          });
+        })
+        .catch((error) => {
+          console.error("Firestore 읽기 에러:", error);
         });
-        fetchRanking();
-      } catch (err) {
-        console.error("랭킹 저장 중 오류:", err);
-      }
     }
 
-    // Firestore에서 랭킹 불러오기 & 표시
-    async function fetchRanking() {
-      try {
-        // 시간 오름차순으로 빠른 순서 10개 가져오기
-        const snapshot = await db.collection("reactionRanking")
-          .orderBy("time", "asc")
-          .limit(10)
-          .get();
-
-        rankingList.innerHTML = "";
-        let rank = 1;
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const li = document.createElement("li");
-          li.textContent = `${rank}위: ${data.nickname} - ${data.time}ms`;
-          rankingList.appendChild(li);
-          rank++;
-        });
-      } catch (err) {
-        console.error("랭킹 불러오기 중 오류:", err);
-      }
-    }
-
-    // 페이지 로드 시 랭킹 불러오기
-    fetchRanking();
+    // 페이지 로드 시 랭킹 표시
+    showRanking();
   </script>
 </body>
 </html>
