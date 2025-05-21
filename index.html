@@ -3,20 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>반응속도 테스트</title>
-
-  <!-- ✅ Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-132WLHW093"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-132WLHW093');
-  </script>
-
-  <!-- ✅ Google AdSense 광고 스크립트 -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js?client=ca-pub-3922135705918865"
-          crossorigin="anonymous"></script>
-
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -42,6 +28,8 @@
       align-items: center;
       text-align: center;
       padding: 20px;
+      user-select: none;
+      cursor: default;
     }
     #nickname {
       font-size: 20px;
@@ -52,6 +40,7 @@
     #message {
       font-size: 28px;
       margin: 20px 0;
+      min-height: 40px;
     }
     #result {
       font-size: 24px;
@@ -62,6 +51,7 @@
       padding: 10px 20px;
       font-size: 24px;
       cursor: pointer;
+      user-select: none;
     }
     #ranking {
       margin-top: 40px;
@@ -70,6 +60,7 @@
       background: #333;
       padding: 10px;
       border-radius: 10px;
+      user-select: none;
     }
     #ranking h3 {
       margin-bottom: 10px;
@@ -79,12 +70,43 @@
     #ranking ul {
       list-style: none;
       padding: 0;
+      max-height: 250px;
+      overflow-y: auto;
     }
     #ranking li {
       font-size: 16px;
       padding: 4px 0;
+      border-bottom: 1px solid #444;
     }
   </style>
+
+  <!-- Firebase JS SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js"></script>
+
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3922135705918865"
+          crossorigin="anonymous"></script>
+
+  <script>
+    // Firebase 설정
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9AwuTKyrISlvnltgpqsA3h1vklsHmgNE",
+      authDomain: "reaction-test-ce722.firebaseapp.com",
+      projectId: "reaction-test-ce722",
+      storageBucket: "reaction-test-ce722.firebasestorage.app",
+      messagingSenderId: "521611260971",
+      appId: "1:521611260971:web:340e3bcdd043606b60e66e",
+      measurementId: "G-LPZ55SMXQD"
+    };
+
+    // Firebase 초기화
+    const app = firebase.initializeApp(firebaseConfig);
+    const analytics = firebase.analytics();
+    const db = firebase.firestore();
+  </script>
+
 </head>
 <body>
   <div class="ad">
@@ -100,12 +122,12 @@
   </div>
 
   <div class="container" id="gameArea">
-    <input type="text" id="nickname" placeholder="닉네임 입력 (필수)" />
+    <input type="text" id="nickname" placeholder="닉네임 입력 (필수)" autocomplete="off" />
     <div id="message">시작하려면 버튼을 누르세요</div>
     <button id="start">시작</button>
     <div id="result"></div>
     <div id="ranking">
-      <h3>📋 최근 랭킹</h3>
+      <h3>📋 실시간 랭킹 (전세계 공유)</h3>
       <ul id="rankingList"></ul>
     </div>
   </div>
@@ -159,7 +181,7 @@
       }, Math.random() * 3000 + 2000);
     });
 
-    // 게임 화면 클릭
+    // 게임 화면 클릭 (게임 영역 클릭 감지)
     gameArea.addEventListener("click", () => {
       if (!gameStarted) return;
 
@@ -170,7 +192,6 @@
         message.textContent = "다시 하시려면 버튼을 누르세요";
         startBtn.style.display = "inline-block";
         saveToRanking(nickname, reactionTime);
-        showRanking();
         resetGame();
       } else {
         clearTimeout(timeout);
@@ -188,26 +209,46 @@
       gameStarted = false;
     }
 
-    function saveToRanking(nick, time) {
-      let records = JSON.parse(localStorage.getItem("reactionRanking")) || [];
-      records.unshift({ nick, time });
-      if (records.length > 10) records = records.slice(0, 10);
-      localStorage.setItem("reactionRanking", JSON.stringify(records));
+    // Firestore에 랭킹 저장
+    async function saveToRanking(nick, time) {
+      try {
+        // 랭킹 컬렉션에 새 기록 추가
+        await db.collection("reactionRanking").add({
+          nickname: nick,
+          time: time,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        fetchRanking();
+      } catch (err) {
+        console.error("랭킹 저장 중 오류:", err);
+      }
     }
 
-    function showRanking() {
-      const records = JSON.parse(localStorage.getItem("reactionRanking")) || [];
-      rankingList.innerHTML = "";
-      records.forEach((r, i) => {
-        const li = document.createElement("li");
-        li.textContent = `${i + 1}위: ${r.nick} - ${r.time}ms`;
-        rankingList.appendChild(li);
-      });
+    // Firestore에서 랭킹 불러오기 & 표시
+    async function fetchRanking() {
+      try {
+        // 시간 오름차순으로 빠른 순서 10개 가져오기
+        const snapshot = await db.collection("reactionRanking")
+          .orderBy("time", "asc")
+          .limit(10)
+          .get();
+
+        rankingList.innerHTML = "";
+        let rank = 1;
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const li = document.createElement("li");
+          li.textContent = `${rank}위: ${data.nickname} - ${data.time}ms`;
+          rankingList.appendChild(li);
+          rank++;
+        });
+      } catch (err) {
+        console.error("랭킹 불러오기 중 오류:", err);
+      }
     }
 
-    // 처음 로딩 시 랭킹 표시
-    showRanking();
+    // 페이지 로드 시 랭킹 불러오기
+    fetchRanking();
   </script>
 </body>
 </html>
-
